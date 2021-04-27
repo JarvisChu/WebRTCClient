@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8">
+    <meta name="description" content="WebRTC Client">
+    <title>WebRTC Client</title>
+</head>
+
+<body>
+
+    <script src="./js/signalingChannel.js"></script>
+    <script src="./js/utils.js"></script>
+    
+    <div><video id="localVideo" autoplay playsinline controls="false" /></div>
+    <div><video id="remoteVideo" autoplay playsinline controls="false" /></div>
+
+    Enter Your Name: <input type="text" id="username" name="username"> 
+    <button id="login" onclick="login()">Login</button> <br/>
+    Enter Peer Name: <input type="text" id="peername" name="peername">
+    <button id="call" onclick="call()">Call</button> <br/>
+
+    <div> Debug Info </div>
+    <div id="status"></div>
+
+</body>
+</html>
