@@ -4,15 +4,7 @@ var signalingChannel;
 var peerConnection;
 var isLogined = false;
 var username
-
-function log(msg){
-    var pre = document.createElement("p");
-    pre.style.wordWrap = "break-word";
-    pre.innerHTML = msg;
-
-    var output = document.getElementById("status");
-    output.appendChild(pre);
-}
+var flag = 0
 
 function login() {
     username = document.getElementById("username").value
@@ -62,29 +54,58 @@ async function initPeerConnection(){
 
     peerConnection = new RTCPeerConnection(configuration);
 
-    // Set local media
-    const localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-    const localVideo = document.querySelector('video#localVideo');
-    localVideo.srcObject = localStream;
-    localStream.getTracks().forEach(track => {
-        console.log('add local track:', track);
-        peerConnection.addTrack(track, localStream);
+    // Get local camera and send to peer
+    const localCameraStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+    const localCamera = document.querySelector('video#localCamera');
+    localCamera.srcObject = localCameraStream;
+    localCameraStream.getTracks().forEach(track => {
+        console.log('add local camera track:', track);
+        peerConnection.addTrack(track, localCameraStream);
     });
 
-    // Set remote media
-    const remoteStream = new MediaStream();
-    const remoteVideo = document.querySelector('#remoteVideo');
-    remoteVideo.srcObject = remoteStream;
+    // Get local screen and send to peer
+    const displayMediaOptions = {
+        video: true,
+        audio: false
+    }
+    const localScreenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+    localScreenStream.getTracks().forEach(track => {
+        console.log('add local screen track:', track);
+        //peerConnection.addTrack(track, localScreenStream);
+        peerConnection.addTrack(track);
+    });
+
+    
+    // Get remote camera/screen track and set to local video tag
+    const remoteCameraStream = new MediaStream();
+    const remoteCamera = document.querySelector('#remoteCamera');
+    remoteCamera.srcObject = remoteCameraStream;
+
+    const remoteScreenStream = new MediaStream();
+    const remoteScreen = document.querySelector('#remoteScreen');
+    remoteScreen.srcObject = remoteScreenStream;
+
     peerConnection.addEventListener('track', async (event) => {
         console.log('add remote track:', event);
-        remoteStream.addTrack(event.track, remoteStream);
+        if(event.track.kind == "audio"){
+            remoteCameraStream.addTrack(event.track);
+        }else if (event.track.kind == "video"){
+
+            // 简单处理，区分摄像头视频和桌面分享视频
+            if(flag == 0){
+                remoteCameraStream.addTrack(event.track);
+                flag = 1;
+            }else{
+                remoteScreenStream.addTrack(event.track);
+            }
+        }
     });
+
 
     // 收集自己的ice candidate，然后通过Siganl通道传输给对端
     // Listen for local ICE candidates on the local RTCPeerConnection
     peerConnection.addEventListener('icecandidate', event => {
         console.info("icecandidate:", event)
-        log("get local icecandidate: ", event)
         if (event.candidate) {
             signalingChannel.send(JSON.stringify(event.candidate.toJSON()));
         }
@@ -94,6 +115,7 @@ async function initPeerConnection(){
     // Listen for connectionstatechange on the local RTCPeerConnection
     peerConnection.addEventListener('connectionstatechange', event => {
         console.info("connectionstatechange: ", event)
+        console.info("peerConnection.connectionState: ", peerConnection.connectionState)
         if (peerConnection.connectionState === 'connected') {
             // Peers connected!
             console.info("peer connected")
@@ -108,7 +130,6 @@ async function initPeerConnection(){
             break;
         }
     }, false);
-
 }
 
 // 呼叫
@@ -217,7 +238,7 @@ async function onRecvMessage(evt){
 
     // 应答方收到呼叫方的offer
     else if (message.type == "offer") {
-        log("recv offer: ", message);
+        console.info("recv offer: ", message);
         peerConnection.setRemoteDescription(new RTCSessionDescription(message));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
@@ -226,15 +247,14 @@ async function onRecvMessage(evt){
 
     // 呼叫方收到应答方的answer
     else if (message.type == "answer") {
-        log("recv answer: ", message)
+        console.info("recv answer: ", message)
         const remoteDesc = new RTCSessionDescription(message);
         await peerConnection.setRemoteDescription(remoteDesc);
     }
 
     // 对方发来的iceCandidate
     else if (message.candidate) {
-        log("recv remote candidate: ", message.candidate )
-        console.info("add remote candidate", message.candidate)
+        console.info("recv remote candidate: ", message.candidate )
         try {
             await peerConnection.addIceCandidate(message);
         } catch (e) {
