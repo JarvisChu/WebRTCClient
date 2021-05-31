@@ -8,6 +8,8 @@ function createWindow () {
     width: 800,
     height: 600,
     webPreferences: {
+      nodeIntegration:true,
+      contextIsolation: false,
       preload: path.join(__dirname, 'preload.js')
     }
   })
@@ -17,16 +19,6 @@ function createWindow () {
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools()
-
-  /*const subWindow = new BrowserWindow(
-    {
-      parent: mainWindow,
-      width: 400,
-      height: 300,
-    }
-  )
-
-  subWindow.loadURL("chrome://webrtc-internals/");*/
 }
 
 // This method will be called when Electron has finished

@@ -2,6 +2,19 @@
 
 demo for webrtc
 
+
+## directories
+
+```
+tree -L 2
+.
+├── Readme.md
+├── meetting     # meeting
+└── peer2peer    # peer2peer examples, sharing audio/video/desktop in realtime.
+    ├── chrome   # raw html/js example
+    └── electron # electron example
+```
+
 ## how to use
 
 ### run SignalingChannel
@@ -14,15 +27,16 @@ cd SignalingChannel
 
 ### run WebRTCClient
 
-**using chome**
+**using peer2peer chome example**
 
 ```
-cd electron-app
+cd peer2peer/chrome
 open index.html in chrome
 ```
 
-**using electron**
+**using peer2peer electron example**
 
 ```
-cd electron-app && npm install && npm start
+cd peer2peer/electron
+cd electron && npm install && npm start
 ```
