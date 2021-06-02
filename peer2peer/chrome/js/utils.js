@@ -1,5 +1,5 @@
-//var wsUri = "ws://localhost:8080/ws";
-var wsUri = "ws://129.226.189.83:30001/ws";
+//var wsUri = "ws://localhost:8080/ws/p2p";
+var wsUri = "ws://129.226.189.83:30001/ws/p2p";
 var signalingChannel;
 var peerConnection;
 var isLogined = false;
@@ -16,7 +16,7 @@ function login() {
 
     console.info("login: " + username);
 
-    signalingChannel = new SignalingChannel(wsUri + '?id=' + username);
+    signalingChannel = new SignalingChannel(wsUri + '?name=' + username);
     signalingChannel.websocket.onopen = async function (evt) {
         console.info("onopen: ", evt);
         isLogined = true;

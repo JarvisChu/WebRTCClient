@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8">
+    <meta name="description" content="WebRTC Client">
+    <title>WebRTC Client</title>
+</head>
+
+<body>
+
+    <script src="./js/signalingChannel.js"></script>
+    <script src="./js/utils.js"></script>
+
+
+    <div id='loginDiv'>
+        Enter Your Name: <input type="text" id="username" name="username"><br/>
+        Enter Room ID:   <input type="text" id="roomid" name="roomid"><br/>
+        <button id="login" onclick="login()">Login</button>
+    </div>
+
+    <div id='statusDiv' hidden>
+        <button id="status" >Status</button>
+    </div>
+
+    <div id='logDiv' hidden>
+        <textarea id="log" rows="10" cols="60"></textarea>
+    </div>
+    
+    <div id='videosDiv' style="max-width: 100%;width:320px;" hidden >
+    </div>
+
+</body>
+</html>
