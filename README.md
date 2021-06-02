@@ -40,3 +40,10 @@ open index.html in chrome
 cd peer2peer/electron
 cd electron && npm install && npm start
 ```
+
+**using meeting chome example**
+
+```
+cd meeting/chrome
+open index.html in chrome
+```
