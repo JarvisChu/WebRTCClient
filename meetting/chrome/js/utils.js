@@ -15,6 +15,7 @@ const mediaStreamConstraints = {
 
 var localCameraStream
 var peerConnections = []
+var isOfferSender = []
 var configuration = {'iceServers': [{'urls': 'stun:stun.ekiga.net'}]};
 
 function showVideo(userName, stream){
@@ -144,6 +145,22 @@ function initPeerConnection(remoteUserName){
         }
     });
 
+    // Listen for negotiationneeded event
+    peerConnections[remoteUserName].addEventListener('negotiationneeded', async event => {
+        console.info("negotiationneeded: ", event)
+
+        if (isOfferSender[remoteUserName] == true){
+            // Create Offer
+            const offer = await peerConnections[remoteUserName].createOffer();
+            await peerConnections[remoteUserName].setLocalDescription(offer);
+            var json = offer.toJSON()
+            json.from = username
+            json.to = remoteUserName
+            signalingChannel.send(JSON.stringify(json));
+            console.info("send offer:", json)
+        }
+    })
+
     // Listen for connectionstatechange on the local RTCPeerConnection
     peerConnections[remoteUserName].addEventListener('connectionstatechange', event => {
         console.info("connectionstatechange: ", event)
@@ -154,6 +171,7 @@ function initPeerConnection(remoteUserName){
             printLog("peer connected, peer:" + remoteUserName)
         }else if (peerConnections[remoteUserName].connectionState === 'failed'){
             printLog("peer connect failed, peer:" + remoteUserName)
+            peerConnections[remoteUserName].restartIce()
         }
     });
 
@@ -195,16 +213,10 @@ async function onUserEnterRoom(message){
         return;
     }
 
+    isOfferSender[remoteUserName] = true
+
     printLog("user login:" + remoteUserName)
     initPeerConnection(remoteUserName)
-
-    // Create Offer
-    const offer = await peerConnections[remoteUserName].createOffer();
-    await peerConnections[remoteUserName].setLocalDescription(offer);
-    var json = offer.toJSON()
-    json.from = username
-    json.to = remoteUserName
-    signalingChannel.send(JSON.stringify(json));
 }
 
 function onUserExitRoom(message){
