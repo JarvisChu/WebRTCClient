@@ -2,13 +2,18 @@
 
 const { desktopCapturer } = require('electron')
 
-//var wsUri = "ws://localhost:8080/ws";
-var wsUri = "ws://129.226.189.83:30001/ws";
+//var wsUri = "ws://localhost:8080/ws/p2p";
+var wsUri = "ws://129.226.189.83:30001/ws/p2p";
 var signalingChannel;
 var peerConnection;
 var isLogined = false;
 var username
-var flag = 0
+
+var isOfferSender = false
+var localScreenVideoLabel
+var localCameraVideoLabel
+var remoteScreenVideoLabel
+var remoteCameraVideoLabel
 
 function login() {
     username = document.getElementById("username").value
@@ -20,7 +25,7 @@ function login() {
 
     console.info("login: " + username);
 
-    signalingChannel = new SignalingChannel(wsUri + '?id=' + username);
+    signalingChannel = new SignalingChannel(wsUri + '?name=' + username);
     signalingChannel.websocket.onopen = async function (evt) {
         console.info("onopen: ", evt);
         isLogined = true;
@@ -40,15 +45,18 @@ async function initPeerConnection(){
     peerConnection = new RTCPeerConnection(configuration);
 
     // Get local camera and send to peer
-    const localCameraStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+    const localCameraStream = await navigator.mediaDevices.getUserMedia({video: true,audio: false});
     const localCamera = document.querySelector('video#localCamera');
     localCamera.srcObject = localCameraStream;
     localCameraStream.getTracks().forEach(track => {
-        console.log('add local camera track:', track);
+        console.log('add local camera track:', track); 
+        if(track.kind == "video"){
+            localCameraVideoLabel = track.label
+        }
         peerConnection.addTrack(track, localCameraStream);
     });
- 
 
+    
     // Get local screen and send to peer
     // !!! Cannot user getDisplayMedia, using desktopCapturer instead
      
@@ -84,6 +92,9 @@ async function initPeerConnection(){
 
             localScreenStream.getTracks().forEach(track => {
                 console.log('add local screen track:', track);
+                if(track.kind == "video"){
+                    localScreenVideoLabel = track.label
+                }
                 peerConnection.addTrack(track);
             });
         }catch(e){
@@ -107,17 +118,15 @@ async function initPeerConnection(){
         if(event.track.kind == "audio"){
             remoteCameraStream.addTrack(event.track);
         }else if (event.track.kind == "video"){
-
-            // 简单处理，区分摄像头视频和桌面分享视频
-            if(flag == 0){
+            if (event.transceiver.sender.track.label == remoteCameraVideoLabel){
+                console.info("add camera video")
                 remoteCameraStream.addTrack(event.track);
-                flag = 1;
-            }else{
+            }else if(event.transceiver.sender.track.label == remoteScreenVideoLabel){
+                console.info("add screen video")
                 remoteScreenStream.addTrack(event.track);
             }
         }
     });
-
 
     // 收集自己的ice candidate，然后通过Siganl通道传输给对端
     // Listen for local ICE candidates on the local RTCPeerConnection
@@ -128,6 +137,16 @@ async function initPeerConnection(){
         }
     });
 
+     // Listen for negotiationneeded event
+     peerConnection.addEventListener('negotiationneeded', async event => {
+        console.info("negotiationneeded: ", event)
+
+        if (isOfferSender == true){
+            // Create Offer
+            await sendOffer();
+        }
+    })
+
     // 监听PeerConnection的连接建立事件
     // Listen for connectionstatechange on the local RTCPeerConnection
     peerConnection.addEventListener('connectionstatechange', event => {
@@ -136,6 +155,9 @@ async function initPeerConnection(){
         if (peerConnection.connectionState === 'connected') {
             // Peers connected!
             console.info("peer connected")
+        }else if(peerConnection.connectionState === 'failed'){
+            console.info("peer connect failed, restartIce")
+            peerConnection.restartIce()
         }
     });
 
@@ -178,7 +200,7 @@ function onPeerCall(message){
 	if (r==true){ 
         accept(message.caller);
     } else{
-		reject(message.caller);
+	    reject(message.caller);
 	}
 }
 
@@ -202,7 +224,6 @@ async function accept(caller){
     signalingChannel.send("set-peer:" + caller);
     await initPeerConnection();   
     signalingChannel.send("{\"type\":\"accept\"}");
-
     document.getElementById("call").disabled = true;
     document.getElementById("call").textContent = "chatting...";
 }
@@ -210,13 +231,33 @@ async function accept(caller){
 // 对方接听
 async function onPeerAccept(){
     console.info("onPeerAccept");
+
+    isOfferSender = true
     await initPeerConnection();
+    await sendOffer();
+}
+
+async function sendOffer(){
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    signalingChannel.send(JSON.stringify(offer.toJSON()));
-
+    json = offer.toJSON();
+    json.cameravideolabel = localCameraVideoLabel
+    json.screenvideolabel = localScreenVideoLabel
+    signalingChannel.send(JSON.stringify(json));
     document.getElementById("call").textContent = "chatting...";
+    console.info("send offer:", json)
 }
+
+async function sendAnswer(){
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    json = answer.toJSON()
+    json.cameravideolabel = localCameraVideoLabel
+    json.screenvideolabel = localScreenVideoLabel
+    signalingChannel.send(JSON.stringify(json));
+    console.info("send answer: ", json)
+}
+
 
 // 挂断
 function hangup(){
@@ -257,15 +298,20 @@ async function onRecvMessage(evt){
     else if (message.type == "offer") {
         console.info("recv offer: ", message);
         peerConnection.setRemoteDescription(new RTCSessionDescription(message));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        signalingChannel.send(JSON.stringify(answer.toJSON()));
+
+        remoteCameraVideoLabel = message.cameravideolabel
+        remoteScreenVideoLabel = message.screenvideolabel
+
+        await sendAnswer();
     }
 
     // 呼叫方收到应答方的answer
     else if (message.type == "answer") {
         console.info("recv answer: ", message)
         const remoteDesc = new RTCSessionDescription(message);
+        remoteCameraVideoLabel = message.cameravideolabel
+        remoteScreenVideoLabel = message.screenvideolabel
+
         await peerConnection.setRemoteDescription(remoteDesc);
     }
 

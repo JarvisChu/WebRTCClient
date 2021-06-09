@@ -4,7 +4,6 @@ var signalingChannel;
 var peerConnection;
 var isLogined = false;
 var username
-var flag = 0
 
 var isOfferSender = false
 var localScreenVideoLabel
