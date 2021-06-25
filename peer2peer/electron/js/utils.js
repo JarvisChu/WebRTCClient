@@ -155,6 +155,23 @@ async function initPeerConnection(){
         if (peerConnection.connectionState === 'connected') {
             // Peers connected!
             console.info("peer connected")
+            
+            var senders = peerConnection.getSenders()
+            senders.forEach( sender => {
+                var iceTransport = sender.transport.iceTransport
+                var pair = iceTransport.getSelectedCandidatePair();
+                console.info("pair: ", pair)
+                console.info("connect type, local: ", pair.local.type, ", remote: ", pair.remote.type)
+            })
+
+            //var iceTransport = peerConnection.getSenders()[0].transport.iceTransport;
+            //iceTransport.onselectedcandidatepairchange = function(event) {
+               // var pair = iceTransport.getSelectedCandidatePair();
+                //console.info('pair ', pair)
+                //console.info("local proto ", pair.local.protocol.toUpperCase())
+                //console.info("remote proto ", pair.remote.protocol.toUpperCase())
+            //}
+
         }else if(peerConnection.connectionState === 'failed'){
             console.info("peer connect failed, restartIce")
             peerConnection.restartIce()
