@@ -6,10 +6,7 @@ var isLogined = false;
 var username
 
 var isOfferSender = false
-var localScreenVideoLabel
-var localCameraVideoLabel
-var remoteScreenVideoLabel
-var remoteCameraVideoLabel
+var flag = 1
 
 function login() {
     username = document.getElementById("username").value
@@ -37,7 +34,14 @@ function login() {
 async function initPeerConnection(){
     console.info("initPeerConnection");
     
-    const configuration = {'iceServers': [{'urls': 'stun:stun.ekiga.net'}]};
+    const configuration = { iceServers: [{
+        urls: "turn:49.232.14.30:23678",
+        username: "dolphindev",
+        credential: "dolphindev@#1234"
+    }]
+    };
+
+
     peerConnection = new RTCPeerConnection(configuration);
 
     // Get local camera and send to peer
@@ -46,9 +50,6 @@ async function initPeerConnection(){
     localCamera.srcObject = localCameraStream;
     localCameraStream.getTracks().forEach(track => {
         console.log('add local camera track:', track); 
-        if(track.kind == "video"){
-            localCameraVideoLabel = track.label
-        }
         peerConnection.addTrack(track, localCameraStream);
     });
 
@@ -57,9 +58,6 @@ async function initPeerConnection(){
     const localScreenStream = await navigator.mediaDevices.getDisplayMedia({video: true,audio: true});
     localScreenStream.getTracks().forEach(track => {
         console.log('add local screen track:', track);
-        if(track.kind == "video"){
-            localScreenVideoLabel = track.label
-        }
         peerConnection.addTrack(track);
     });
 
@@ -77,10 +75,11 @@ async function initPeerConnection(){
         if(event.track.kind == "audio"){
             remoteCameraStream.addTrack(event.track);
         }else if (event.track.kind == "video"){
-            if (event.transceiver.sender.track.label == remoteCameraVideoLabel){
+            if(flag == 1){
                 console.info("add camera video")
                 remoteCameraStream.addTrack(event.track);
-            }else if(event.transceiver.sender.track.label == remoteScreenVideoLabel){
+                flag = 2
+            }else{
                 console.info("add screen video")
                 remoteScreenStream.addTrack(event.track);
             }
@@ -163,7 +162,7 @@ function call(){
     console.info("call, peername" + peername);
 
     signalingChannel.send("set-peer:" + peername);
-    signalingChannel.send("{\"type\":\"calling\", \"caller\":" + username + "}");
+    signalingChannel.send("{\"type\":\"calling\", \"caller\":\"" + username + "\"}");
     document.getElementById("call").disabled = true; 
     document.getElementById("call").textContent = "calling...";
 }
@@ -216,8 +215,6 @@ async function sendOffer(){
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     json = offer.toJSON();
-    json.cameravideolabel = localCameraVideoLabel
-    json.screenvideolabel = localScreenVideoLabel
     signalingChannel.send(JSON.stringify(json));
     document.getElementById("call").textContent = "chatting...";
     console.info("send offer:", json)
@@ -227,8 +224,6 @@ async function sendAnswer(){
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     json = answer.toJSON()
-    json.cameravideolabel = localCameraVideoLabel
-    json.screenvideolabel = localScreenVideoLabel
     signalingChannel.send(JSON.stringify(json));
     console.info("send answer: ", json)
 }
@@ -273,10 +268,6 @@ async function onRecvMessage(evt){
     else if (message.type == "offer") {
         console.info("recv offer: ", message);
         peerConnection.setRemoteDescription(new RTCSessionDescription(message));
-
-        remoteCameraVideoLabel = message.cameravideolabel
-        remoteScreenVideoLabel = message.screenvideolabel
-
         await sendAnswer();
     }
 
@@ -284,9 +275,6 @@ async function onRecvMessage(evt){
     else if (message.type == "answer") {
         console.info("recv answer: ", message)
         const remoteDesc = new RTCSessionDescription(message);
-        remoteCameraVideoLabel = message.cameravideolabel
-        remoteScreenVideoLabel = message.screenvideolabel
-
         await peerConnection.setRemoteDescription(remoteDesc);
     }
 
