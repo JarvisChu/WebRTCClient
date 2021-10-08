@@ -35,9 +35,9 @@ async function initPeerConnection(){
     console.info("initPeerConnection");
     
     const configuration = { iceServers: [{
-        urls: "turn:49.232.14.30:23678",
-        username: "dolphindev",
-        credential: "dolphindev@#1234"
+        urls: "turn:1.2.3.4:5678",
+        username: "user1",
+        credential: "pswd1"
     }]
     };
 
